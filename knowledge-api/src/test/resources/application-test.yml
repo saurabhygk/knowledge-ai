@@ -1,0 +1,19 @@
+spring:
+  datasource:
+    url: jdbc:tc:postgresql:16:///knowledgeai
+    driver-class-name: org.testcontainers.jdbc.ContainerDatabaseDriver
+  jpa:
+    show-sql: true
+  ai:
+    openai:
+      api-key: test-key
+    vectorstore:
+      pgvector:
+        initialize-schema: true
+
+storage:
+  minio:
+    endpoint: http://localhost:9000
+    access-key: test
+    secret-key: test
+    bucket: test-bucket
