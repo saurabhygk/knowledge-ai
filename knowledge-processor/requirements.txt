@@ -1,0 +1,31 @@
+# Web / runtime
+fastapi==0.115.5
+uvicorn[standard]==0.32.1
+
+# Redis Streams
+redis[asyncio]==5.2.0
+
+# PostgreSQL
+asyncpg==0.30.0
+pgvector==0.3.5
+
+# MinIO
+minio==7.2.11
+
+# Document parsing
+unstructured[all-docs]==0.16.11
+pillow==11.0.0
+
+# Chunking (standalone — no full LangChain needed)
+langchain-text-splitters==0.3.2
+
+# Embeddings
+openai==1.57.0
+httpx==0.28.0        # Used for Ollama provider
+
+# Config & utilities
+pydantic==2.10.3
+pydantic-settings==2.6.1
+python-multipart==0.0.12
+tenacity==9.0.0      # Retry logic with exponential backoff
+structlog==24.4.0    # Structured logging

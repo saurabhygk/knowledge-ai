@@ -56,6 +56,49 @@ services:
     volumes:
       - qdrant_data:/qdrant/storage
 
+  knowledge-api:
+    build:
+      context: ./knowledge-api
+      dockerfile: Dockerfile
+    container_name: knowledgeai-api
+    environment:
+      DATABASE_URL: postgresql://knowledgeai:secret@postgres:5432/knowledgeai
+      REDIS_URL: redis://redis:6379
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      MINIO_BUCKET: knowledge-ai-docs
+      MINIO_SECURE: "false"
+      LOG_LEVEL: INFO
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+
+  knowledge-processor:
+    build:
+      context: ./knowledge-processor
+      dockerfile: Dockerfile
+    container_name: knowledgeai-processor
+    env_file:
+      - ./knowledge-processor/.env.example
+    environment:
+      DATABASE_URL: postgresql://knowledgeai:secret@postgres:5432/knowledgeai
+      REDIS_URL: redis://redis:6379
+      MINIO_ENDPOINT: minio:9000
+    ports:
+      - "8001:8001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
 volumes:
   postgres_data:
   minio_data:

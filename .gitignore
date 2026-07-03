@@ -1,26 +1,26 @@
-# Maven
-target/
-*.class
-*.jar
-*.war
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+dist/
+*.egg-info/
 
 # IDE
 .idea/
 *.iml
 .vscode/
-.eclipse/
-*.project
-*.classpath
-
-# Spring Boot
-*.log
-application-local.yml
-application-secrets.yml
 
 # OS
 .DS_Store
 Thumbs.db
 
+# Logs
+*.log
+
 # Secrets
 .env
 *.env
+application-local.yml
+application-secrets.yml
