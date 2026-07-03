@@ -1,0 +1,35 @@
+import os
+from alembic import context
+from sqlalchemy import engine_from_config, pool
+
+config = context.config
+
+# Allow DATABASE_URL env var to override alembic.ini value.
+# asyncpg URLs must be converted to psycopg2 for Alembic's sync engine.
+db_url = os.getenv("DATABASE_URL", config.get_main_option("sqlalchemy.url", ""))
+db_url = db_url.replace("postgresql+asyncpg://", "postgresql://")
+config.set_main_option("sqlalchemy.url", db_url)
+
+
+def run_migrations_offline() -> None:
+    context.configure(url=db_url, literal_binds=True, dialect_opts={"paramstyle": "named"})
+    with context.begin_transaction():
+        context.run_migrations()
+
+
+def run_migrations_online() -> None:
+    connectable = engine_from_config(
+        config.get_section(config.config_ini_section, {}),
+        prefix="sqlalchemy.",
+        poolclass=pool.NullPool,
+    )
+    with connectable.connect() as connection:
+        context.configure(connection=connection)
+        with context.begin_transaction():
+            context.run_migrations()
+
+
+if context.is_offline_mode():
+    run_migrations_offline()
+else:
+    run_migrations_online()

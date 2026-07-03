@@ -1,3 +1,5 @@
+import asyncio
+
 import structlog
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 from openai import AsyncOpenAI, RateLimitError, APIConnectionError
@@ -7,8 +9,10 @@ from app.config import settings
 
 log = structlog.get_logger()
 
-# OpenAI limits: 2048 inputs per request, ~8191 tokens per input
-_MAX_BATCH = 512
+# Reduced from 512 — free-tier keys have ~1 TPM quota, smaller batches avoid 429s
+_MAX_BATCH = 50
+# Pause between batches to stay under TPM limits
+_INTER_BATCH_SLEEP = 1.0
 
 
 class OpenAIEmbeddingProvider(EmbeddingProvider):
@@ -33,7 +37,7 @@ class OpenAIEmbeddingProvider(EmbeddingProvider):
 
         all_embeddings: list[list[float]] = []
 
-        # Process in batches to stay within API limits
+        # Process in batches; sleep between each to respect TPM limits
         for i in range(0, len(texts), _MAX_BATCH):
             batch = texts[i : i + _MAX_BATCH]
             embeddings = await self._embed_batch(batch)
@@ -42,13 +46,15 @@ class OpenAIEmbeddingProvider(EmbeddingProvider):
                       batch_num=i // _MAX_BATCH + 1,
                       batch_size=len(batch),
                       total=len(texts))
+            if i + _MAX_BATCH < len(texts):
+                await asyncio.sleep(_INTER_BATCH_SLEEP)
 
         return all_embeddings
 
     @retry(
         retry=retry_if_exception_type((RateLimitError, APIConnectionError)),
-        wait=wait_exponential(multiplier=1, min=2, max=60),
-        stop=stop_after_attempt(5),
+        wait=wait_exponential(multiplier=2, min=5, max=120),
+        stop=stop_after_attempt(6),
     )
     async def _embed_batch(self, texts: list[str]) -> list[list[float]]:
         response = await self._client.embeddings.create(

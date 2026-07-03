@@ -3,9 +3,14 @@ __pycache__/
 *.py[cod]
 *.pyo
 .venv/
+.vev/
 venv/
 dist/
 *.egg-info/
+
+# Node
+node_modules/
+.npm/
 
 # IDE
 .idea/

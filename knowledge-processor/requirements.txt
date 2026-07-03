@@ -14,6 +14,7 @@ minio==7.2.11
 
 # Document parsing
 unstructured[all-docs]==0.16.11
+pdfminer.six==20231228
 pillow==11.0.0
 
 # Chunking (standalone — no full LangChain needed)
