@@ -11,13 +11,10 @@ import signal
 import asyncpg
 import redis.asyncio as aioredis
 import structlog
+from langchain_core.embeddings import Embeddings
 
-from app.chunking.element_aware_chunker import ElementAwareChunker
-from app.chunking.recursive_chunker import RecursiveChunker
 from app.config import settings
 from app.db.repository import DocumentRepository
-from app.embeddings.ollama_provider import OllamaEmbeddingProvider
-from app.embeddings.openai_provider import OpenAIEmbeddingProvider
 from app.logging_config import configure_logging
 from app.parsers.unstructured_parser import UnstructuredParser
 from app.processor import DocumentProcessor
@@ -26,12 +23,18 @@ from app.storage.minio_client import MinioStorageClient
 log = structlog.get_logger()
 
 
-async def _sync_vector_dimensions(pool: asyncpg.Pool, required_dims: int) -> None:
+async def _sync_vector_dimensions(pool: asyncpg.Pool, embedder: Embeddings) -> None:
     """
-    Check the current embedding column dimension in the DB.
-    If it doesn't match the active provider, auto-resize it and clear stale vectors.
-    This means switching EMBEDDING_PROVIDER in .env is all that's ever needed.
+    Detect the embedding dimension by running a probe embed, then check whether
+    the vector_store column matches. If not, resize it automatically.
+
+    WHY a probe embed instead of a hardcoded dimension map?
+    Any future provider works without updating a lookup table — the dimension
+    is measured directly from the provider's actual output.
     """
+    test_vec = await embedder.aembed_query("ping")
+    required_dims = len(test_vec)
+
     current_dims = await pool.fetchval(
         """
         SELECT atttypmod
@@ -68,24 +71,21 @@ async def _sync_vector_dimensions(pool: asyncpg.Pool, required_dims: int) -> Non
     log.info("vector_dimensions_updated", dims=required_dims)
 
 
-def _build_processor(pool: asyncpg.Pool) -> DocumentProcessor:
-    embedder = (
-        OpenAIEmbeddingProvider()
-        if settings.embedding_provider == "openai"
-        else OllamaEmbeddingProvider()
-    )
-    chunker = (
-        ElementAwareChunker(settings.chunk_size, settings.chunk_overlap)
-        if settings.chunking_strategy == "element_aware"
-        else RecursiveChunker(settings.chunk_size, settings.chunk_overlap)
-    )
-    return DocumentProcessor(
+def _build_processor(pool: asyncpg.Pool) -> tuple[DocumentProcessor, Embeddings]:
+    from app.dependencies import create_embedder, create_chunker
+
+    embedder, embedder_name = create_embedder()
+    chunker = create_chunker()
+    log.info("embedder_loaded", provider=embedder_name)
+
+    processor = DocumentProcessor(
         parser=UnstructuredParser(),
         chunker=chunker,
         embedder=embedder,
         storage=MinioStorageClient(),
         repo=DocumentRepository(pool),
     )
+    return processor, embedder
 
 
 async def _ensure_consumer_group(client: aioredis.Redis) -> None:
@@ -127,9 +127,10 @@ async def run_worker() -> None:
 
     pool = await asyncpg.create_pool(settings.database_url, min_size=2, max_size=5)
     redis_client = aioredis.from_url(settings.redis_url, decode_responses=True)
-    processor = _build_processor(pool)
+    processor, embedder = _build_processor(pool)
 
-    await _sync_vector_dimensions(pool, processor._embedder.dimensions)
+    # Auto-detect dimensions from a probe embed and resize DB column if needed.
+    await _sync_vector_dimensions(pool, embedder)
     await _ensure_consumer_group(redis_client)
     log.info("worker_ready")
 
@@ -164,7 +165,6 @@ async def run_worker() -> None:
                         log.info("message_acked", msg_id=msg_id)
                     except Exception as exc:
                         log.error("message_failed", msg_id=msg_id, error=str(exc), exc_info=True)
-                        # Leave unacked — it stays in the PEL for retry or manual inspection
     finally:
         log.info("worker_stopping")
         await redis_client.aclose()

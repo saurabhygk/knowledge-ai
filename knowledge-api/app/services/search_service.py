@@ -4,17 +4,18 @@ import json
 
 import asyncpg
 import structlog
+from langchain_core.embeddings import Embeddings
 
-from app.embeddings.base import EmbeddingProvider
 from app.models.schemas import SearchResponse, SearchResult
 
 log = structlog.get_logger()
 
 
 class SearchService:
-    def __init__(self, pool: asyncpg.Pool, embedder: EmbeddingProvider):
+    def __init__(self, pool: asyncpg.Pool, embedder: Embeddings, embedder_name: str = ""):
         self._pool = pool
         self._embedder = embedder
+        self._embedder_name = embedder_name
 
     async def search(
         self, tenant_slug: str, query: str, top_k: int = 5, min_score: float = 0.5
@@ -25,11 +26,12 @@ class SearchService:
         if not tenant:
             raise KeyError(f"Tenant not found: {tenant_slug}")
 
-        log.info("search_start", tenant=tenant_slug, provider=self._embedder.provider_name, query=query[:80])
+        log.info("search_start", tenant=tenant_slug, provider=self._embedder_name, query=query[:80])
 
-        embedding = await self._embedder.embed(query)
+        # aembed_query is LangChain's async method for embedding a single string.
+        # Identical result to the old embedder.embed() — just through LangChain's interface.
+        embedding = await self._embedder.aembed_query(query)
         vector_literal = "[" + ",".join(str(v) for v in embedding) + "]"
-        # (1 - cosine_distance) = cosine_similarity; filter below threshold before returning
         similarity_threshold = 1 - min_score
 
         rows = await self._pool.fetch(

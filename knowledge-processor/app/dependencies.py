@@ -1,17 +1,15 @@
 """
-Wires all components together.  Called once at startup.
+Wires all components together. Called once at startup.
 """
 import asyncpg
 import structlog
+from langchain_core.embeddings import Embeddings
 
 from app.config import settings
 from app.chunking.base import ChunkingStrategy
 from app.chunking.recursive_chunker import RecursiveChunker
 from app.chunking.element_aware_chunker import ElementAwareChunker
 from app.db.repository import DocumentRepository
-from app.embeddings.base import EmbeddingProvider
-from app.embeddings.openai_provider import OpenAIEmbeddingProvider
-from app.embeddings.ollama_provider import OllamaEmbeddingProvider
 from app.parsers.base import DocumentParser
 from app.parsers.unstructured_parser import UnstructuredParser
 from app.processor import DocumentProcessor
@@ -44,19 +42,37 @@ def create_chunker() -> ChunkingStrategy:
     )
 
 
-def create_embedder() -> EmbeddingProvider:
-    if settings.embedding_provider == "ollama":
+def create_embedder() -> tuple[Embeddings, str]:
+    """
+    Return a (LangChain Embeddings instance, human-readable name) pair.
+    Set EMBEDDING_PROVIDER in .env to switch providers — no code changes needed.
+    """
+    provider = settings.embedding_provider.lower()
+
+    if provider == "ollama":
+        from langchain_ollama import OllamaEmbeddings
         log.info("using_ollama_embeddings", model=settings.ollama_embedding_model)
-        return OllamaEmbeddingProvider()
+        emb = OllamaEmbeddings(
+            model=settings.ollama_embedding_model,
+            base_url=settings.ollama_base_url,
+        )
+        return emb, f"ollama/{settings.ollama_embedding_model}"
+
+    from langchain_openai import OpenAIEmbeddings
     log.info("using_openai_embeddings", model=settings.openai_embedding_model)
-    return OpenAIEmbeddingProvider()
+    emb = OpenAIEmbeddings(
+        model=settings.openai_embedding_model,
+        api_key=settings.openai_api_key,
+    )
+    return emb, f"openai/{settings.openai_embedding_model}"
 
 
 def create_processor(pool: asyncpg.Pool) -> DocumentProcessor:
+    embedder, _ = create_embedder()
     return DocumentProcessor(
         parser=create_parser(),
         chunker=create_chunker(),
-        embedder=create_embedder(),
+        embedder=embedder,
         storage=MinioStorageClient(),
         repo=DocumentRepository(pool),
     )

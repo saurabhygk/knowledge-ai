@@ -1,8 +1,8 @@
 import structlog
+from langchain_core.embeddings import Embeddings
 
 from app.chunking.base import ChunkingStrategy
 from app.db.repository import DocumentRepository
-from app.embeddings.base import EmbeddingProvider
 from app.parsers.base import DocumentParser
 from app.storage.minio_client import MinioStorageClient
 
@@ -19,7 +19,7 @@ class DocumentProcessor:
         self,
         parser: DocumentParser,
         chunker: ChunkingStrategy,
-        embedder: EmbeddingProvider,
+        embedder: Embeddings,
         storage: MinioStorageClient,
         repo: DocumentRepository,
     ):
@@ -63,9 +63,12 @@ class DocumentProcessor:
             if not chunks:
                 raise ValueError("Chunking produced no chunks")
 
-            # Step 4: Embed all chunks in batches
+            # Step 4: Embed all chunks.
+            # aembed_documents is LangChain's async batch embedding method.
+            # For OpenAI it handles batching and rate-limit retry internally.
+            # For Ollama it loops sequentially (local, no rate limits).
             texts = [c.text for c in chunks]
-            embeddings = await self._embedder.embed_texts(texts)
+            embeddings = await self._embedder.aembed_documents(texts)
 
             # Step 5: Persist — delete old data first (supports re-indexing)
             await self._repo.delete_vectors(document_id)
@@ -79,7 +82,7 @@ class DocumentProcessor:
             log.info("processing_complete",
                      document_id=document_id,
                      chunk_count=len(chunks),
-                     embedding_model=self._embedder.model_name)
+                     embedding_provider=type(self._embedder).__name__)
 
         except Exception as exc:
             log.error("processing_failed", document_id=document_id, error=str(exc), exc_info=True)

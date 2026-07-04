@@ -1,6 +1,4 @@
 fastapi==0.115.5
-openai==1.57.0
-httpx==0.28.0
 uvicorn[standard]==0.32.1
 asyncpg==0.30.0
 redis[asyncio]==5.2.0
@@ -12,3 +10,9 @@ python-multipart==0.0.12
 structlog==24.4.0
 alembic==1.14.0
 psycopg2-binary==2.9.12
+
+# LangChain — provider-agnostic LLM and embedding interfaces
+langchain-core>=0.3.0
+langchain-openai>=0.2.0
+langchain-ollama>=0.2.0
+langchain-anthropic>=0.3.0

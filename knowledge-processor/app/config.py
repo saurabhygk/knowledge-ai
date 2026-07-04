@@ -1,5 +1,4 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import Field
 from typing import Literal
 
 
@@ -24,8 +23,10 @@ class Settings(BaseSettings):
     minio_bucket: str = "knowledge-ai-docs"
     minio_secure: bool = False
 
-    # Embeddings
-    embedding_provider: Literal["openai", "ollama"] = "openai"
+    # Embedding provider — must match knowledge-api setting
+    # Supported: openai | ollama
+    # Add new provider: add a branch in app/dependencies.py, set this var.
+    embedding_provider: str = "openai"
     openai_api_key: str = "change-me"
     openai_embedding_model: str = "text-embedding-3-small"
     ollama_base_url: str = "http://localhost:11434"

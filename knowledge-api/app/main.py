@@ -32,18 +32,22 @@ async def lifespan(app: FastAPI):
     await create_redis_client()
 
     pool = get_pool()
-    embedder = create_embedding_provider()
-    llm = create_llm_provider()
-    log.info("embedding_provider_loaded", provider=embedder.provider_name)
-    log.info("llm_provider_loaded", provider=llm.provider_name)
+
+    # Factories return (instance, human-readable name) tuples.
+    # The name is used for logging and included in API responses so callers
+    # can see which provider/model generated the answer.
+    embedder, embedder_name = create_embedding_provider()
+    llm, llm_name = create_llm_provider()
+    log.info("embedding_provider_loaded", provider=embedder_name)
+    log.info("llm_provider_loaded", provider=llm_name)
 
     app.state.tenant_repo = TenantRepository(pool)
     app.state.document_service = DocumentService(
         repo=DocumentRepository(pool),
         storage=StorageService(),
     )
-    app.state.search_service = SearchService(pool, embedder)
-    app.state.ask_service = AskService(app.state.search_service, llm)
+    app.state.search_service = SearchService(pool, embedder, embedder_name)
+    app.state.ask_service = AskService(app.state.search_service, llm, llm_name)
 
     yield
 

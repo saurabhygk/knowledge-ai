@@ -17,16 +17,15 @@ unstructured[all-docs]==0.16.11
 pdfminer.six==20231228
 pillow==11.0.0
 
-# Chunking (standalone — no full LangChain needed)
+# LangChain — text splitting and embedding providers
 langchain-text-splitters==0.3.2
-
-# Embeddings
-openai==1.57.0
-httpx==0.28.0        # Used for Ollama provider
+langchain-core>=0.3.0
+langchain-openai>=0.2.0
+langchain-ollama>=0.2.0
 
 # Config & utilities
 pydantic==2.10.3
 pydantic-settings==2.6.1
 python-multipart==0.0.12
-tenacity==9.0.0      # Retry logic with exponential backoff
-structlog==24.4.0    # Structured logging
+tenacity==9.0.0
+structlog==24.4.0
