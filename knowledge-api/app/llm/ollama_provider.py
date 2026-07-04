@@ -13,18 +13,15 @@ class OllamaLLMProvider(LLMProvider):
     def provider_name(self) -> str:
         return f"ollama/{self._model}"
 
-    async def complete(self, system_prompt: str, user_message: str) -> str:
+    async def complete(self, system_prompt: str, user_message: str, history: list[dict] | None = None) -> str:
+        messages = [{"role": "system", "content": system_prompt}]
+        if history:
+            messages.extend(history)
+        messages.append({"role": "user", "content": user_message})
         async with httpx.AsyncClient(timeout=120.0) as client:
             resp = await client.post(
                 f"{self._base_url}/api/chat",
-                json={
-                    "model": self._model,
-                    "stream": False,
-                    "messages": [
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": user_message},
-                    ],
-                },
+                json={"model": self._model, "stream": False, "messages": messages},
             )
             resp.raise_for_status()
             return resp.json()["message"]["content"].strip()

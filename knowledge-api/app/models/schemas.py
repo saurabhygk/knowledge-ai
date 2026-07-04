@@ -15,6 +15,7 @@ class TenantResponse(BaseModel):
     id: UUID
     name: str
     slug: str
+    access_token: str
     created_at: datetime
 
 
@@ -71,10 +72,16 @@ class SearchResponse(BaseModel):
     results: list[SearchResult]
 
 
+class HistoryMessage(BaseModel):
+    role: str  # 'user' or 'assistant'
+    content: str
+
+
 class AskRequest(BaseModel):
     question: str = Field(..., min_length=1, max_length=2000)
     top_k: int = Field(default=5, ge=1, le=20)
     min_score: float = Field(default=0.5, ge=0.0, le=1.0)
+    history: list[HistoryMessage] = Field(default_factory=list)
 
 
 class AskResponse(BaseModel):

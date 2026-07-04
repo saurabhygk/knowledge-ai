@@ -2,6 +2,7 @@ export interface Tenant {
   id: string
   name: string
   slug: string
+  access_token: string
   created_at: string
 }
 
@@ -33,10 +34,16 @@ export interface AskResponse {
   llm_provider: string
 }
 
+export interface HistoryMessage {
+  role: 'user' | 'assistant'
+  content: string
+}
+
 export interface Message {
   role: 'user' | 'bot'
   text: string
   sources?: SearchResult[]
   llm_provider?: string
   error?: boolean
+  escalate?: boolean  // renders escalation card instead of a text bubble
 }

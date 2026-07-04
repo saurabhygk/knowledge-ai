@@ -15,6 +15,6 @@ def _svc(request: Request) -> AskService:
 @router.post("", response_model=AskResponse)
 async def ask(tenant_slug: str, body: AskRequest, request: Request):
     try:
-        return await _svc(request).ask(tenant_slug, body.question, body.top_k, body.min_score)
+        return await _svc(request).ask(tenant_slug, body.question, body.top_k, body.min_score, body.history)
     except KeyError as e:
         raise HTTPException(status_code=404, detail=str(e))

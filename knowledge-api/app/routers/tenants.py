@@ -25,3 +25,19 @@ async def create_tenant(body: TenantCreate, request: Request):
 async def list_tenants(request: Request):
     rows = await _repo(request).list_all()
     return [TenantResponse(**r) for r in rows]
+
+
+@router.get("/{slug}", response_model=TenantResponse)
+async def get_tenant(slug: str, request: Request):
+    row = await _repo(request).get_by_slug(slug)
+    if not row:
+        raise HTTPException(status_code=404, detail=f"Tenant not found: {slug}")
+    return TenantResponse(**row)
+
+
+@router.get("/{slug}/verify-token")
+async def verify_token(slug: str, token: str, request: Request):
+    valid = await _repo(request).verify_token(slug, token)
+    if not valid:
+        raise HTTPException(status_code=401, detail="Invalid or expired access token")
+    return {"valid": True}

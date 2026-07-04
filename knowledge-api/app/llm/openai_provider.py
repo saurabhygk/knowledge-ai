@@ -13,13 +13,14 @@ class OpenAILLMProvider(LLMProvider):
     def provider_name(self) -> str:
         return f"openai/{self._model}"
 
-    async def complete(self, system_prompt: str, user_message: str) -> str:
+    async def complete(self, system_prompt: str, user_message: str, history: list[dict] | None = None) -> str:
+        messages = [{"role": "system", "content": system_prompt}]
+        if history:
+            messages.extend(history)
+        messages.append({"role": "user", "content": user_message})
         resp = await self._client.chat.completions.create(
             model=self._model,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_message},
-            ],
+            messages=messages,
             temperature=0.2,
         )
         return resp.choices[0].message.content.strip()
